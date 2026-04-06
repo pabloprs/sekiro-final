@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shadow Fight: Final Saga Fixed</title>
+    <style>
+        :root {
+            --primary: #ff4d4d;
+            --magic: #4de6ff;
+            --glass: rgba(10, 10, 10, 0.96);
+            --border: rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            margin: 0; background: #000; color: #fff;
+            font-family: 'Inter', sans-serif; display: flex;
+            height: 100vh; overflow: hidden;
+        }
+
+        #sidebar {
+            width: 280px; background: #050505;
+            border-right: 1px solid var(--border); display: flex;
+            flex-direction: column; padding: 25px; z-index: 100;
+        }
+
+        .side-btn {
+            background: #111; border: 1px solid var(--border);
+            color: #fff; padding: 14px; margin-bottom: 12px;
+            cursor: pointer; border-radius: 6px; transition: 0.2s;
+            text-transform: uppercase; font-weight: 900; letter-spacing: 1px;
+        }
+
+        .side-btn:hover:not(:disabled) { border-color: var(--primary); background: #1a1a1a; transform: translateX(5px); }
+        .side-btn:disabled { opacity: 0.15; cursor: not-allowed; }
+
+        .act-tabs { display: flex; gap: 10px; margin-bottom: 20px; width: 100%; justify-content: center; }
+        .act-tab { 
+            padding: 8px 15px; background: #222; cursor: pointer; border-radius: 4px; font-size: 0.8rem;
+            border: 1px solid transparent;
+        }
+        .act-tab.active { border-color: var(--primary); color: var(--primary); }
+
+        .map-wrapper { position: relative; height: 350px; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: space-around; }
+        .map-node {
+            width: 60px; height: 60px; border-radius: 50%; background: #111;
+            border: 3px solid #333; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: 0.3s; z-index: 2;
+        }
+        .map-node.unlocked { border-color: var(--primary); box-shadow: 0 0 15px rgba(255, 77, 77, 0.3); }
+        .map-node.current { background: var(--primary); transform: scale(1.1); box-shadow: 0 0 25px var(--primary); }
+
+        #game-wrapper { flex-grow: 1; position: relative; display: flex; justify-content: center; align-items: center; }
+        .overlay {
+            position: absolute; inset: 0; background: var(--glass);
+            backdrop-filter: blur(20px); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 50;
+        }
+        .hidden { display: none !important; }
+
+        #hud {
+            position: absolute; top: 20px; width: 90%;
+            display: flex; justify-content: space-between; z-index: 10; pointer-events: none;
+        }
+        .hp-bar { width: 300px; height: 20px; background: #222; border: 2px solid #fff; border-radius: 3px; overflow: hidden; }
+        .hp-fill { height: 100%; background: var(--primary); width: 100%; transition: 0.2s; }
+        .nrg-fill { height: 6px; background: var(--magic); width: 0%; margin-top: 5px; transition: 0.3s; box-shadow: 0 0 10px var(--magic); }
+
+        .shop-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; padding: 20px; width: 90%; max-height: 400px; overflow-y: auto; }
+        .item-card { background: #151515; padding: 15px; border: 1px solid #333; border-radius: 8px; text-align: center; }
+    </style>
+</head>
+<body>
+
+<div id="sidebar">
+    <h2 style="color:var(--primary); text-align: center; margin-bottom: 30px; letter-spacing: 2px;">SHADOW SAGA</h2>
+    <button class="side-btn" onclick="showScreen('menu-map')">📜 Journal</button>
+    <button class="side-btn" onclick="showScreen('menu-shop')">⚔️ Arsenal</button>
+
+    <div style="margin-top: auto; background: #111; padding: 20px; border-radius: 8px;">
+        <div style="color:#ffd700; font-size: 1.3rem;">💰 <span id="coin-txt">300</span></div>
+        <div style="font-size:0.7rem; color:#666; margin-top:10px;">EQUIPPED:</div>
+        <div id="weap-txt" style="color:white; font-weight: bold;">Fists</div>
+    </div>
+</div>
+
+<div id="game-wrapper">
+    <div id="hud" class="hidden">
+        <div>
+            <div class="hp-bar"><div id="p-hp" class="hp-fill"></div></div>
+            <div id="p-nrg" class="nrg-fill"></div>
+            <div id="p-rounds" style="color:#ffd700; margin-top:5px;">WINS: 0</div>
+        </div>
+        <div style="text-align: right;">
+            <div class="hp-bar"><div id="e-hp" class="hp-fill"></div></div>
+            <div id="e-rounds" style="color:#ffd700; margin-top:5px;">WINS: 0</div>
+        </div>
+    </div>
+
+    <div id="menu-main" class="overlay">
+        <h1 style="font-size: 5rem; margin: 0;">SHADOW</h1>
+        <p style="letter-spacing: 5px; color: var(--primary);">THE FINAL ASCENSION</p>
+        <button class="side-btn" style="width:250px; margin-top:40px;" onclick="showScreen('menu-map')">OPEN JOURNAL</button>
+    </div>
+
+    <div id="menu-map" class="overlay hidden">
+        <div class="act-tabs">
+            <div class="act-tab active" id="tab0" onclick="changeAct(0)">ACT I</div>
+            <div class="act-tab" id="tab1" onclick="changeAct(1)">ACT II</div>
+            <div class="act-tab" id="tab2" onclick="changeAct(2)">ACT III</div>
+        </div>
+        <h2 id="act-title">THE DOJO</h2>
+        <div class="map-wrapper" id="map-nodes"></div>
+        <button class="side-btn" style="margin-top:20px" onclick="showScreen('menu-main')">Close</button>
+    </div>
+
+    <div id="menu-shop" class="overlay hidden">
+        <h2>LEGENDARY ARSENAL</h2>
+        <div class="shop-grid" id="shop-items"></div>
+        <button class="side-btn" onclick="showScreen('menu-map')">Back</button>
+    </div>
+
+    <canvas id="gameCanvas" width="850" height="500"></canvas>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // --- DATA ---
+    let coins = 300;
+    let currentAct = 0;
+    let unlockedStage = 0; 
+    let activeStageData = null;
+    let pRounds = 0, eRounds = 0;
+    let isGaming = false;
+
+    const weapons = {
+        'Fists': { dmg: 12, range: 50, price: 0, color: '#333' },
+        'Brass Knuckles': { dmg: 20, range: 55, price: 150, color: '#888' },
+        'Katana': { dmg: 38, range: 100, price: 500, color: '#fff' },
+        'War Hammers': { dmg: 60, range: 80, price: 1000, color: '#555' },
+        'Nunchaku': { dmg: 70, range: 90, price: 1200, color: '#ffd700' },
+        'Void Blade': { dmg: 75, range: 130, price: 2000, color: '#a0f' },
+        'Blood Reaper': { dmg: 95, range: 160, price: 4000, color: '#ff4d4d' }
+    };
+    let inventory = ['Fists'];
+    let equipped = 'Fists';
+
+    const acts = [
+        { name: "ACT I: THE DOJO", stages: [
+            { name: "Disciple", hp: 100, reward: 200, weapon: "Fists" },
+            { name: "Shinobi", hp: 150, reward: 400, weapon: "Katana" },
+            { name: "Master Crane", hp: 220, reward: 600, weapon: "Katana" }
+        ]},
+        { name: "ACT II: NIGHT CITY", stages: [
+            { name: "Enforcer", hp: 350, reward: 800, weapon: "War Hammers" },
+            { name: "Assassin", hp: 500, reward: 1200, weapon: "Katana" },
+            { name: "Cyber Shogun", hp: 700, reward: 2000, weapon: "Nunchaku" }
+        ]},
+        { name: "ACT III: TITAN'S REALM", stages: [
+            { name: "Gatekeeper", hp: 1000, reward: 3000, weapon: "War Hammers" },
+            { name: "Eternal Guard", hp: 1500, reward: 5000, weapon: "Void Blade" },
+            { name: "TITAN", hp: 3000, reward: 15000, weapon: "Blood Reaper" }
+        ]}
+    ];
+
+    class Fighter {
+        constructor(x, isPlayer) {
+            this.x = x; this.y = 340; this.isPlayer = isPlayer;
+            this.hp = 100; this.energy = 0;
+            this.vx = 0; this.vy = 0; this.dir = isPlayer ? 1 : -1;
+            this.isAttacking = false; this.attackFrame = 0;
+            this.magic = false;
+        }
+
+        draw() {
+            ctx.save();
+            ctx.translate(this.x + 25, this.y + 60);
+            if (this.dir === -1) ctx.scale(-1, 1);
+
+            ctx.fillStyle = this.isPlayer ? 'black' : 'rgba(0,0,0,0.85)';
+           ctx.fillStyle = this.isPlayer ? 'blue' : 'red';
+           ctx.strokeStyle = this.isPlayer ? 'blue' : 'red';
+          ctx.strokeStyle = this.isPlayer ? '#00f' : '#ff0000';
+          ctx.shadowColor = this.strokeStyle;
+          ctx.shadowBlur = 10;
+            ctx.lineWidth = 10; ctx.lineCap = 'round';
+
+            // Head & Body
+            ctx.beginPath(); ctx.arc(0, -50, 15, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(0, -38); ctx.lineTo(0, 20); ctx.stroke();
+
+            // Arm rotation based on attack
+            let armA = this.isAttacking ? -1.8 + (this.attackFrame * 0.15) : 0.6;
+            ctx.beginPath(); ctx.moveTo(0, -30); ctx.lineTo(Math.cos(armA)*45, Math.sin(armA)*45); ctx.stroke();
+
+            // Legs
+            ctx.beginPath(); ctx.moveTo(0, 20); ctx.lineTo(-20, 60); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, 20); ctx.lineTo(20, 60); ctx.stroke();
+
+            // Weapon Render
+            if (this.isAttacking || (this.isPlayer && equipped !== 'Fists')) {
+                const w = weapons[this.isPlayer ? equipped : activeStageData.weapon];
+                ctx.strokeStyle = w.color; ctx.lineWidth = 5;
+                ctx.beginPath();
+                ctx.moveTo(Math.cos(armA)*45, Math.sin(armA)*45);
+                ctx.lineTo(Math.cos(armA)*(45 + w.range/2), Math.sin(armA)*(45 + w.range/2));
+                ctx.stroke();
+            }
+            if(this.magic) { ctx.strokeStyle = '#4de6ff'; ctx.beginPath(); ctx.arc(0,0, 75, 0, Math.PI*2); ctx.stroke(); }
+            ctx.restore();
+        }
+
+        update() {
+            this.x += this.vx; this.y += this.vy;
+            if(this.y < 340) this.vy += 0.8; else { this.y = 340; this.vy = 0; }
+            if(this.isAttacking) {
+                this.attackFrame++;
+                if(this.attackFrame > 12) { // Shorter frame for faster punching
+                    this.isAttacking = false;
+                    this.attackFrame = 0;
+                }
+            }
+            if(this.energy < 100) this.energy += 0.2;
+            if(this.x < 0) this.x = 0; if(this.x > 800) this.x = 800;
+        }
+    }
+
+    let p = new Fighter(100, true);
+    let e = new Fighter(700, false);
+    let projectiles = [];
+
+    function updateAI() {
+        const dist = Math.abs(p.x - e.x);
+        e.dir = p.x > e.x ? 1 : -1;
+
+        // Smart Dodge: Jump back if player is attacking close
+        if (p.isAttacking && dist < 110 && Math.random() < 0.12) {
+            e.vx = -e.dir * 8;
+            if (e.y === 340) e.vy = -12;
+            return;
+        }
+
+        if (dist > 90) e.vx = e.dir * 5; // Fast stalking
+        else {
+            e.vx = 0;
+            if (Math.random() < 0.08 && !e.isAttacking) e.isAttacking = true;
+        }
+    }
+
+    function showScreen(id) {
+        document.querySelectorAll('.overlay').forEach(o => o.classList.add('hidden'));
+        if(id !== 'none') document.getElementById(id).classList.remove('hidden');
+        if(id === 'menu-map') renderMap();
+        if(id === 'menu-shop') renderShop();
+        isGaming = (id === 'none');
+        updateUI();
+    }
+
+    function changeAct(actIdx) {
+        currentAct = actIdx;
+        document.querySelectorAll('.act-tab').forEach((t, i) => t.classList.toggle('active', i === actIdx));
+        renderMap();
+    }
+
+    function renderMap() {
+        const cont = document.getElementById('map-nodes');
+        document.getElementById('act-title').innerText = acts[currentAct].name;
+        cont.innerHTML = '';
+        acts[currentAct].stages.forEach((s, i) => {
+            const globalIdx = (currentAct * 3) + i;
+            const unlocked = globalIdx <= unlockedStage;
+            cont.innerHTML += `
+                <div class="map-node ${unlocked ? 'unlocked' : ''} ${globalIdx === unlockedStage ? 'current' : ''}" 
+                     onclick="${unlocked ? `initFight(${currentAct}, ${i})` : ''}">
+                    ${unlocked ? (globalIdx < unlockedStage ? '✔' : '⚔') : '🔒'}
+                </div>
+                <div style="font-size:0.8rem; color:#aaa">${s.name}</div>
+            `;
+        });
+    }
+
+    function renderShop() {
+        const cont = document.getElementById('shop-items');
+        cont.innerHTML = '';
+        Object.entries(weapons).forEach(([name, d]) => {
+            if(name === 'Fists') return;
+            const owned = inventory.includes(name);
+            cont.innerHTML += `
+                <div class="item-card">
+                    <b style="color:${d.color}">${name}</b><br><small>DMG: ${d.dmg}</small>
+                    <button class="side-btn" style="width:100%; margin-top:10px; font-size:0.7rem;" onclick="buy('${name}')">
+                        ${owned ? (equipped === name ? 'EQUIPPED' : 'EQUIP') : 'BUY '+d.price}
+                    </button>
+                </div>
+            `;
+        });
+    }
+
+    function buy(name) {
+        if(inventory.includes(name)) equipped = name;
+        else if(coins >= weapons[name].price) { coins -= weapons[name].price; inventory.push(name); equipped = name; }
+        renderShop(); updateUI();
+    }
+
+    function updateUI() {
+        document.getElementById('coin-txt').innerText = coins;
+        document.getElementById('weap-txt').innerText = equipped;
+    }
+
+    function initFight(act, stage) {
+        activeStageData = acts[act].stages[stage];
+        pRounds = 0; eRounds = 0;
+        resetRound();
+        showScreen('none');
+        document.getElementById('hud').classList.remove('hidden');
+        requestAnimationFrame(loop);
+    }
+
+    function resetRound() {
+        p.hp = 100; e.hp = activeStageData.hp;
+        p.x = 100; e.x = 700; p.energy = 0; projectiles = [];
+    }
+
+    const keys = {};
+    window.onkeydown = v => {
+        keys[v.code] = true;
+        if(!isGaming) return;
+        // PUNCH FIX: Trigger on KeyDown and reset frame to 0
+        if(v.code === 'KeyJ' && !p.isAttacking) {
+            p.isAttacking = true;
+            p.attackFrame = 0; 
+        }
+        if(v.code === 'KeyL') projectiles.push({ x: p.x+30, y: p.y+50, vx: p.dir*15 });
+        if(v.code === 'KeyI' && p.energy >= 100) {
+            p.magic = true; p.energy = 0;
+            setTimeout(() => { p.magic = false; if(Math.abs(p.x - e.x) < 220) e.hp -= 100; }, 500);
+        }
+    };
+    window.onkeyup = v => keys[v.code] = false;
+
+    function loop() {
+        if(!isGaming) return;
+      // Background selon l'acte
+if (currentAct === 0) {
+    // --- BACKGROUND GRADIENT ---
+let gradient = ctx.createLinearGradient(0, 0, 0, 500);
+
+if (currentAct === 0) {
+    gradient.addColorStop(0, '#000d1a'); // bleu très sombre
+    gradient.addColorStop(1, '#003366'); // bleu foncé
+} 
+else if (currentAct === 1) {
+    gradient.addColorStop(0, '#2b1200'); // sombre orange
+    gradient.addColorStop(1, '#ff8c00'); // orange vif
+} 
+else if (currentAct === 2) {
+    gradient.addColorStop(0, '#1a001a'); // sombre mauve
+    gradient.addColorStop(1, '#6a0dad'); // mauve
+}
+
+ctx.fillStyle = gradient;
+ctx.fillRect(0, 0, 850, 500);
+  let glow = ctx.createRadialGradient(425, 250, 50, 425, 250, 400);
+
+glow.addColorStop(0, "rgba(255,255,255,0.05)");
+glow.addColorStop(1, "rgba(0,0,0,0)");
+
+ctx.fillStyle = glow;
+ctx.fillRect(0, 0, 850, 500);
+}
+ctx.fillRect(0,0,850,500);
+
+        p.vx = 0;
+        if(keys['KeyA']) { p.vx = -7; p.dir = -1; }
+        if(keys['KeyD']) { p.vx = 7; p.dir = 1; }
+        if(keys['KeyW'] && p.y === 340) p.vy = -16;
+
+        updateAI();
+        p.update(); e.update();
+        p.draw(); e.draw();
+
+        projectiles.forEach((pr, i) => {
+            pr.x += pr.vx;
+            ctx.fillStyle = '#fff'; ctx.fillRect(pr.x, pr.y, 10, 2);
+            if(Math.abs(pr.x - e.x) < 35) { e.hp -= 20; projectiles.splice(i, 1); }
+        });
+
+        if(p.isAttacking && p.attackFrame === 6) {
+            if(Math.abs(p.x - e.x) < weapons[equipped].range) e.hp -= (weapons[equipped].dmg/2.5);
+        }
+        if(e.isAttacking && e.attackFrame === 6) {
+            const ew = weapons[activeStageData.weapon];
+            if(Math.abs(p.x - e.x) < ew.range) p.hp -= 8;
+        }
+
+        document.getElementById('p-hp').style.width = p.hp + '%';
+        document.getElementById('e-hp').style.width = (e.hp / activeStageData.hp * 100) + '%';
+        document.getElementById('p-nrg').style.width = p.energy + '%';
+        document.getElementById('p-rounds').innerText = `WINS: ${pRounds}`;
+        document.getElementById('e-rounds').innerText = `WINS: ${eRounds}`;
+
+        if(p.hp <= 0 || e.hp <= 0) {
+            if(p.hp <= 0) eRounds++; else pRounds++;
+            if(pRounds >= 2 || eRounds >= 2) {
+                if(pRounds >= 2) {
+                    alert("STAGE CLEARED!"); coins += activeStageData.reward;
+                    const curGlobalIdx = (currentAct * 3) + acts[currentAct].stages.indexOf(activeStageData);
+                    if(unlockedStage === curGlobalIdx) unlockedStage++;
+                }
+                document.getElementById('hud').classList.add('hidden');
+                showScreen('menu-map');
+            } else {
+                resetRound();
+                requestAnimationFrame(loop);
+            }
+        } else requestAnimationFrame(loop);
+    }
+
+    showScreen('menu-main');
+</script>
+</body>
+</html>
