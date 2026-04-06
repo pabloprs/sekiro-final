@@ -344,33 +344,24 @@
         if(!isGaming) return;
       // Background selon l'acte
 if (currentAct === 0) {
-    // --- BACKGROUND GRADIENT ---
+   // --- BACKGROUND GRADIENT FIX ---
 let gradient = ctx.createLinearGradient(0, 0, 0, 500);
 
-if (currentAct === 0) {
-    gradient.addColorStop(0, '#000d1a'); // bleu très sombre
-    gradient.addColorStop(1, '#003366'); // bleu foncé
+if (currentAct == 0) {
+    gradient.addColorStop(0, '#000d1a');
+    gradient.addColorStop(1, '#003366');
 } 
-else if (currentAct === 1) {
-    gradient.addColorStop(0, '#2b1200'); // sombre orange
-    gradient.addColorStop(1, '#ff8c00'); // orange vif
+else if (currentAct == 1) {
+    gradient.addColorStop(0, '#2b1200');
+    gradient.addColorStop(1, '#ff8c00');
 } 
-else if (currentAct === 2) {
-    gradient.addColorStop(0, '#1a001a'); // sombre mauve
-    gradient.addColorStop(1, '#6a0dad'); // mauve
+else if (currentAct == 2) {
+    gradient.addColorStop(0, '#1a001a');
+    gradient.addColorStop(1, '#6a0dad');
 }
 
 ctx.fillStyle = gradient;
 ctx.fillRect(0, 0, 850, 500);
-  let glow = ctx.createRadialGradient(425, 250, 50, 425, 250, 400);
-
-glow.addColorStop(0, "rgba(255,255,255,0.05)");
-glow.addColorStop(1, "rgba(0,0,0,0)");
-
-ctx.fillStyle = glow;
-ctx.fillRect(0, 0, 850, 500);
-}
-ctx.fillRect(0,0,850,500);
 
         p.vx = 0;
         if(keys['KeyA']) { p.vx = -7; p.dir = -1; }
